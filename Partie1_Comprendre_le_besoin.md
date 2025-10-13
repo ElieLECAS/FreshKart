@@ -34,8 +34,6 @@ D'après le cahier des charges FreshKart, les sources de données sont :
 3. **Filtrage des prix** : Écarter les lignes avec prix unitaire négatif
 4. **Déduplication** : Sur `order_id` (garder données les plus récentes lors du rechargement)
 
-**Note :** Dans l'implémentation actuelle, le pipeline importe 100% des données sans filtrage métier. Les filtres ci-dessus correspondent aux règles métier du cahier des charges, mais peuvent être appliqués lors des requêtes d'analyse plutôt qu'à l'import.
-
 ### Jointures nécessaires
 
 1. **Orders ↔ Customers** : Via `customer_id` pour récupérer la ville du client
