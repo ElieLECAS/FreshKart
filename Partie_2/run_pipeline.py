@@ -12,37 +12,6 @@ DEFAULT_INPUT_DIR = "data/input"
 DEFAULT_OUTPUT_DIR = "Partie_2/output"
 
 
-def find_orders_file(input_dir: Path, target_date: dt.date) -> Optional[Path]:
-    pattern = f"orders_{target_date.strftime('%Y-%m-%d')}.json"
-    candidate = input_dir / pattern
-    return candidate if candidate.exists() else None
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Mini-pipeline FreshKart: charge données, applique transformations, "
-            "et écrit CSV + SQLite."
-        )
-    )
-    parser.add_argument(
-        "--date",
-        type=str,
-        default=DEFAULT_DATE_STR,
-    )
-    parser.add_argument(
-        "--input-dir",
-        type=str,
-        default=DEFAULT_INPUT_DIR,
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default=DEFAULT_OUTPUT_DIR,
-    )
-    return parser.parse_args()
-
-
 def load_customers(customers_path: Path) -> pd.DataFrame:
     df = pd.read_csv(customers_path)
     return df
@@ -65,6 +34,13 @@ def load_orders_json(orders_path: Path) -> pd.DataFrame:
     date_col = orders_df.get("order_date", orders_df.get("created_at"))
     orders_df["order_date"] = pd.to_datetime(date_col).dt.date.astype(str)
     return orders_df
+
+
+
+
+# -----------------------------------------------------------
+
+
 
 
 def explode_items(orders_df: pd.DataFrame) -> pd.DataFrame:
@@ -179,24 +155,15 @@ def write_outputs(
 
 
 def main() -> None:
-    args = parse_args()
-    input_dir = Path(args.input_dir)
-    output_dir = Path(args.output_dir)
+    # args = parse_args()
+    input_dir = Path(DEFAULT_INPUT_DIR)
+    output_dir = Path(DEFAULT_OUTPUT_DIR)
 
-    target_date = dt.date.fromisoformat(args.date)
+    target_date = dt.date.fromisoformat(DEFAULT_DATE_STR)
 
-    orders_path = find_orders_file(input_dir, target_date)
-    if orders_path is None:
-        raise FileNotFoundError(
-            f"Fichier commandes introuvable pour {target_date}: expected orders_YYYY-MM-DD.json"
-        )
-
+    orders_path = input_dir / f"orders_{target_date.strftime('%Y-%m-%d')}.json"
     customers_path = input_dir / "customers.csv"
     refunds_path = input_dir / "refunds.csv"
-    if not customers_path.exists():
-        raise FileNotFoundError(f"Fichier manquant: {customers_path}")
-    if not refunds_path.exists():
-        raise FileNotFoundError(f"Fichier manquant: {refunds_path}")
 
     customers_df = load_customers(customers_path)
     refunds_by_order = load_refunds(refunds_path)
@@ -208,8 +175,6 @@ def main() -> None:
     per_day_city = build_daily_city_sales(per_order)
 
     write_outputs(per_order, per_day_city, rejected_items_df, output_dir, target_date)
-
-    print("OK - Fini")
 
 
 if __name__ == "__main__":
