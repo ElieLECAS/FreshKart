@@ -45,63 +45,37 @@ def parse_args() -> argparse.Namespace:
 
 def load_customers(customers_path: Path) -> pd.DataFrame:
     df = pd.read_csv(customers_path)
-    expected_cols: List[str] = ["customer_id", "is_active", "city"]
-    missing = [c for c in expected_cols if c not in df.columns]
-    if missing:
-        raise ValueError(f"Colonnes manquantes dans customers.csv: {missing}")
     return df
 
 
 def load_refunds(refunds_path: Path) -> pd.DataFrame:
     df = pd.read_csv(refunds_path)
-    df = df.copy()
 
-    amount_col = "amount_eur" if "amount_eur" in df.columns else ("amount" if "amount" in df.columns else None)
-    if amount_col is None or "order_id" not in df.columns:
-        expected = "['order_id', 'amount'] ou ['order_id', 'amount_eur']"
-        missing = [c for c in ["order_id", "amount/amount_eur"] if c not in df.columns]
-        raise ValueError(f"Colonnes manquantes dans refunds.csv: {expected}. Colonnes trouvées: {list(df.columns)}")
-
-    df[amount_col] = pd.to_numeric(df[amount_col], errors="coerce").fillna(0.0)
-    df[amount_col] = -df[amount_col].abs()
-    refunds_by_order = df.groupby("order_id", as_index=False)[amount_col].sum()
-    refunds_by_order = refunds_by_order.rename(columns={amount_col: "refunds_eur"})
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0.0)
+    df["amount"] = -df["amount"].abs()
+    refunds_by_order = df.groupby("order_id", as_index=False)["amount"].sum()
+    refunds_by_order = refunds_by_order.rename(columns={"amount": "refunds_eur"})
     return refunds_by_order
 
 
 def load_orders_json(orders_path: Path) -> pd.DataFrame:
-
     with open(orders_path, "r", encoding="utf-8") as f:
         raw = json.load(f)
     orders_df = pd.json_normalize(raw, sep=".")
-    # Normalisation colonnes de base (la date peut être dans created_at)
-    base_cols_min = ["order_id", "customer_id", "payment_status", "channel", "items"]
-    missing = [c for c in base_cols_min if c not in orders_df.columns]
-    if missing:
-        raise ValueError(f"Champs manquants dans le JSON des commandes: {missing}")
-
-    if "order_date" in orders_df.columns:
-        orders_df["order_date"] = pd.to_datetime(orders_df["order_date"]).dt.date.astype(str)
-    elif "created_at" in orders_df.columns:
-        orders_df["order_date"] = pd.to_datetime(orders_df["created_at"]).dt.date.astype(str)
-    else:
-        raise ValueError("Aucune colonne de date ('order_date' ou 'created_at') trouvée")
-
+    date_col = orders_df.get("order_date", orders_df.get("created_at"))
+    orders_df["order_date"] = pd.to_datetime(date_col).dt.date.astype(str)
     return orders_df
 
 
 def explode_items(orders_df: pd.DataFrame) -> pd.DataFrame:
     exploded = orders_df.explode("items", ignore_index=True)
-    item_df = pd.json_normalize(exploded["items"]).add_prefix("item_")
-    exploded = pd.concat([exploded.drop(columns=["items"]), item_df], axis=1)
-
-    if "item_quantity" not in exploded.columns and "item_qty" in exploded.columns:
-        exploded = exploded.rename(columns={"item_qty": "item_quantity"})
-
-    for col in ["item_quantity", "item_unit_price"]:
-        if col not in exploded.columns:
-            raise ValueError("Colonnes d'articles manquantes: item_quantity, item_unit_price")
-    return exploded
+    items_df = pd.json_normalize(exploded["items"]).add_prefix("item_")
+    
+    result = pd.concat([exploded.drop("items", axis=1), items_df], axis=1)
+    
+    result = result.rename(columns={"item_qty": "item_quantity"})
+   
+    return result
 
 
 def apply_business_rules(

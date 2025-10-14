@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Script d'import des données FreshKart vers PostgreSQL
-Parse les fichiers CSV et JSON et les stocke dans une base PostgreSQL
-"""
-
 import os
 import json
 import glob
