@@ -9,7 +9,7 @@ D'après le cahier des charges FreshKart, les sources de données sont :
 1. **`customers.csv`** : Fichier CSV contenant les informations clients
 
     - Structure : `customer_id`, `first_name`, `last_name`, `email`, `city`, `is_active`
-    - Volume : 800 clients (802 lignes avec header)
+    - Volume : 800 clients
     - Format : CSV avec séparateur virgule, encodage UTF-8
 
 2. **`orders_YYYY-MM-DD.json`** : Fichiers JSON quotidiens des commandes
@@ -17,12 +17,11 @@ D'après le cahier des charges FreshKart, les sources de données sont :
     - Structure : Tableau JSON contenant des objets commandes
     - Chaque commande : `order_id`, `customer_id`, `channel`, `created_at`, `payment_status`, `items[]`
     - Chaque item : `sku`, `qty`, `unit_price`
-    - Volume : 31 fichiers (mars 2025), ~3100 commandes, ~7761 items
+    - Volume : 31 fichiers
     - Format : JSON, un fichier par jour
 
 3. **`refunds.csv`** : Fichier CSV des remboursements
     - Structure : `refund_id`, `order_id`, `amount`, `reason`, `created_at`
-    - Volume : 1122 remboursements
     - Format : CSV avec montants négatifs
 
 ## 2. Transformations nécessaires
