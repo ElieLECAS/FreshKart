@@ -51,4 +51,4 @@ postgres_data/
 data/out/*
 data/input/*
 data/*.sql
-partie_2/output/*.db
+Partie_2/output/*.db
