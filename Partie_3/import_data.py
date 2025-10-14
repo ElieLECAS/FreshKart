@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.exc import SQLAlchemyError
+from datetime import date, timedelta
 
 # Configuration de la base de données
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/freshkart')
@@ -24,8 +25,12 @@ DATA_INPUT_PATH = '/data/input'
 TEMP_PATH = '/app/temp'
 OUTPUT_PATH = '/app/output'
 
-# Date cible pour le traitement (15 mars 2025)
-TARGET_DATE = '2025-03-15'
+# Configuration de la date cible
+TARGET_DATE_ENV = os.getenv('TARGET_DATE')
+if TARGET_DATE_ENV:
+    TARGET_DATE = date.fromisoformat(TARGET_DATE_ENV)
+else:
+    TARGET_DATE = date.today() - timedelta(days=1)
 
 # Initialisation SQLAlchemy
 engine = create_engine(DATABASE_URL)
@@ -172,7 +177,7 @@ def generate_daily_summary_csv(session, target_date=None):
     from datetime import date
     
     if target_date is None:
-        target_date = date.fromisoformat(TARGET_DATE)  # Date fixe : 15 mars 2025
+        target_date = TARGET_DATE
     
     print(f"📊 Génération du CSV de résumé pour le {target_date}...")
     
@@ -268,7 +273,7 @@ def populate_orders_clean(session, target_date=None):
     from datetime import date
     
     if target_date is None:
-        target_date = date.fromisoformat(TARGET_DATE)  # Date fixe : 15 mars 2025
+        target_date = TARGET_DATE
     
     print(f"📊 Peuplement de la table orders_clean pour le {target_date}...")
     
@@ -342,7 +347,7 @@ def populate_daily_city_sales(session, target_date=None):
     from datetime import date
     
     if target_date is None:
-        target_date = date.fromisoformat(TARGET_DATE)  # Date fixe : 15 mars 2025
+        target_date = TARGET_DATE
     
     print(f"📊 Peuplement de la table daily_city_sales pour le {target_date}...")
     

@@ -24,6 +24,7 @@ services:
                 condition: service_healthy
         environment:
             DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+            TARGET_DATE: ${TARGET_DATE}
         volumes:
             - ../data:/data
             - ./temp:/app/temp

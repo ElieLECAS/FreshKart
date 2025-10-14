@@ -40,6 +40,8 @@ ENV/
 # Logs
 *.log
 logs/
+*.csv
+.dbq
 
 # Database
 *.sqlite3
