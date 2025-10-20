@@ -114,36 +114,34 @@ class DailyCitySales(Base):
     net_revenue_eur = Column(Float, nullable=False)
 
 def create_tables():
-    """Crée toutes les tables si elles n'existent pas"""
-    print("🏗️  Création des tables...")
+    """Crée toutes les tables"""
+    print("Création des tables...")
     Base.metadata.create_all(engine)
-    print("✅ Tables créées/vérifiées")
+    print("Tables créées")
 
 def copy_files_to_temp():
-    """Copie tous les fichiers de data/input vers le dossier temporaire"""
-    print("📁 Copie des fichiers vers le dossier temporaire...")
+    """Copie les fichiers vers le dossier temporaire"""
+    print("Copie des fichiers...")
     
-    # Créer le dossier temp s'il n'existe pas
     os.makedirs(TEMP_PATH, exist_ok=True)
     
     try:
-        # Copier tous les fichiers CSV et JSON
         for filename in os.listdir(DATA_INPUT_PATH):
             if filename.endswith(('.csv', '.json')):
                 src_path = os.path.join(DATA_INPUT_PATH, filename)
                 dst_path = os.path.join(TEMP_PATH, filename)
                 shutil.copy2(src_path, dst_path)
-                print(f"   📄 Copié: {filename}")
+                print(f"Copié: {filename}")
         
-        print(f"✅ Fichiers copiés vers {TEMP_PATH}")
+        print(f"Fichiers copiés vers {TEMP_PATH}")
         
     except Exception as e:
-        print(f"❌ Erreur lors de la copie des fichiers: {e}")
+        print(f"Erreur lors de la copie des fichiers: {e}")
         raise
 
 def cleanup_temp_directory():
-    """Supprime tous les fichiers du dossier temporaire"""
-    print("🧹 Nettoyage du dossier temporaire...")
+    """Supprime les fichiers du dossier temporaire"""
+    print("Nettoyage du dossier temporaire...")
     
     try:
         if os.path.exists(TEMP_PATH):
@@ -151,36 +149,31 @@ def cleanup_temp_directory():
                 file_path = os.path.join(TEMP_PATH, filename)
                 if os.path.isfile(file_path):
                     os.remove(file_path)
-                    print(f"   🗑️  Supprimé: {filename}")
+                    print(f"Supprimé: {filename}")
             
-            # Supprimer le dossier temp s'il est vide
             try:
                 os.rmdir(TEMP_PATH)
-                print("   🗂️  Dossier temporaire supprimé")
+                print("Dossier temporaire supprimé")
             except OSError:
-                print("   ℹ️  Dossier temporaire non vide, conservé")
+                print("Dossier temporaire conservé")
         
-        print("✅ Nettoyage terminé")
+        print("Nettoyage terminé")
         
     except Exception as e:
-        print(f"❌ Erreur lors du nettoyage: {e}")
-        # Ne pas faire échouer le script pour une erreur de nettoyage
+        print(f"Erreur lors du nettoyage: {e}")
 
 def generate_daily_summary_csv(session, target_date=None):
-    """Génère le fichier CSV de résumé quotidien depuis PostgreSQL"""
+    """Génère le CSV de résumé quotidien"""
     from datetime import date
     
     if target_date is None:
         target_date = TARGET_DATE
     
-    print(f"📊 Génération du CSV de résumé pour le {target_date}...")
+    print(f"Génération du CSV pour le {target_date}...")
     
     try:
-        # Créer le dossier de sortie s'il n'existe pas
         os.makedirs(OUTPUT_PATH, exist_ok=True)
-        
-        # Requête SQL pour générer le résumé quotidien par ville et canal
-        # Similaire à ce qui est fait dans Partie_2 mais avec les données PostgreSQL
+
         query = """
         WITH order_totals AS (
             SELECT 
@@ -221,7 +214,6 @@ def generate_daily_summary_csv(session, target_date=None):
             'gross_revenue_eur', 'refunds_eur', 'net_revenue_eur'
         ])
         
-        # Ajouter le calcul des items vendus (nécessite une requête supplémentaire)
         items_query = """
         SELECT 
             c.city,
@@ -238,46 +230,39 @@ def generate_daily_summary_csv(session, target_date=None):
         items_result = session.execute(text(items_query), {"target_date": target_date})
         items_df = pd.DataFrame(items_result.fetchall(), columns=['city', 'channel', 'items_sold'])
         
-        # Fusionner les DataFrames
         df = df.merge(items_df, on=['city', 'channel'], how='left')
         
-        # Réorganiser les colonnes dans l'ordre attendu
         df = df[['date', 'city', 'channel', 'orders_count', 'unique_customers', 
                 'items_sold', 'gross_revenue_eur', 'refunds_eur', 'net_revenue_eur']]
         
-        # Générer le nom du fichier
         filename = f"daily_summary_{target_date.strftime('%Y%m%d')}.csv"
         filepath = os.path.join(OUTPUT_PATH, filename)
         
-        # Sauvegarder en CSV avec le bon format (point-virgule)
         df.to_csv(filepath, index=False, sep=';', encoding='utf-8')
         
-        print(f"✅ CSV généré: {filename}")
-        print(f"   📊 {len(df)} lignes exportées")
-        print(f"   📁 Sauvegardé dans: {filepath}")
+        print(f"CSV généré: {filename}")
+        print(f"{len(df)} lignes exportées")
         
         return filepath
         
     except Exception as e:
-        print(f"❌ Erreur lors de la génération du CSV: {e}")
+        print(f"Erreur lors de la génération du CSV: {e}")
         raise
 
 def populate_orders_clean(session, target_date=None):
-    """Peuple la table orders_clean avec les données agrégées"""
+    """Peuple la table orders_clean"""
     from datetime import date
     
     if target_date is None:
         target_date = TARGET_DATE
     
-    print(f"📊 Peuplement de la table orders_clean pour le {target_date}...")
+    print(f"Peuplement de orders_clean pour le {target_date}...")
     
     try:
-        # Nettoyer les données existantes pour cette date
         session.query(OrderClean).filter(
             OrderClean.order_date.cast(String).like(f'{target_date}%')
         ).delete(synchronize_session=False)
         
-        # Requête pour générer les données orders_clean
         query = """
         WITH order_aggregates AS (
             SELECT 
@@ -329,29 +314,26 @@ def populate_orders_clean(session, target_date=None):
             orders_count += 1
         
         session.commit()
-        print(f"✅ {orders_count} commandes ajoutées à orders_clean")
+        print(f"{orders_count} commandes ajoutées à orders_clean")
         
     except Exception as e:
         session.rollback()
-        print(f"❌ Erreur lors du peuplement de orders_clean: {e}")
+        print(f"Erreur lors du peuplement de orders_clean: {e}")
         raise
 
 def populate_daily_city_sales(session, target_date=None):
-    """Peuple la table daily_city_sales avec les résumés quotidiens"""
+    """Peuple la table daily_city_sales"""
     from datetime import date
     
     if target_date is None:
         target_date = TARGET_DATE
     
-    print(f"📊 Peuplement de la table daily_city_sales pour le {target_date}...")
+    print(f"Peuplement de daily_city_sales pour le {target_date}...")
     
     try:
-        # Nettoyer les données existantes pour cette date
         session.query(DailyCitySales).filter(
             DailyCitySales.date.cast(String).like(f'{target_date}%')
         ).delete(synchronize_session=False)
-        
-        # Requête pour générer les données daily_city_sales
         query = """
         WITH order_totals AS (
             SELECT 
@@ -427,69 +409,62 @@ def populate_daily_city_sales(session, target_date=None):
             summaries_count += 1
         
         session.commit()
-        print(f"✅ {summaries_count} résumés quotidiens ajoutés à daily_city_sales")
+        print(f"{summaries_count} résumés ajoutés à daily_city_sales")
         
     except Exception as e:
         session.rollback()
-        print(f"❌ Erreur lors du peuplement de daily_city_sales: {e}")
+        print(f"Erreur lors du peuplement de daily_city_sales: {e}")
         raise
 
 def extract_date_from_filename(filename):
-    """Extrait la date depuis le nom de fichier orders_YYYY-MM-DD.json"""
+    """Extrait la date du nom de fichier"""
     match = re.search(r'orders_(\d{4}-\d{2}-\d{2})\.json', filename)
     if match:
         return match.group(1)
     return None
 
 def cleanup_date_data(session, date_str):
-    """Supprime toutes les données d'une date spécifique"""
-    print(f"🗑️  Suppression des données du {date_str}...")
+    """Supprime les données d'une date"""
+    print(f"Suppression des données du {date_str}...")
     
     try:
-        # 1. Trouver les order_ids des commandes de cette date
         orders_of_date = session.query(Order.order_id).filter(
             Order.created_at.cast(DateTime).cast(String).like(f'{date_str}%')
         ).all()
         
         if not orders_of_date:
-            print(f"   ℹ️  Aucune donnée à supprimer pour le {date_str}")
+            print(f"Aucune donnée à supprimer pour le {date_str}")
             return
         
         order_ids = [order[0] for order in orders_of_date]
         
-        # 2. Supprimer les refunds de ces commandes
         refunds_deleted = session.query(Refund).filter(
             Refund.order_id.in_(order_ids)
         ).delete(synchronize_session=False)
         
-        # 3. Supprimer les order_items de ces commandes
         items_deleted = session.query(OrderItem).filter(
             OrderItem.order_id.in_(order_ids)
         ).delete(synchronize_session=False)
-        
-        # 4. Supprimer les orders de cette date
         orders_deleted = session.query(Order).filter(
             Order.created_at.cast(DateTime).cast(String).like(f'{date_str}%')
         ).delete(synchronize_session=False)
         
         session.commit()
-        print(f"✅ Supprimé: {orders_deleted} commandes, {items_deleted} items, {refunds_deleted} remboursements")
+        print(f"Supprimé: {orders_deleted} commandes, {items_deleted} items, {refunds_deleted} remboursements")
         
     except Exception as e:
         session.rollback()
-        print(f"❌ Erreur lors de la suppression: {e}")
+        print(f"Erreur lors de la suppression: {e}")
         raise
 
 def import_customers(session):
-    """Importe les données customers.csv"""
-    print("📋 Import des clients...")
+    """Importe les clients"""
+    print("Import des clients...")
     
     try:
-        # Lire le fichier CSV depuis le dossier temporaire
         df = pd.read_csv(os.path.join(TEMP_PATH, 'customers.csv'))
-        print(f"   📊 {len(df)} clients trouvés")
+        print(f"{len(df)} clients trouvés")
         
-        # Insérer tous les clients (sans filtrage)
         for _, row in df.iterrows():
             customer = Customer(
                 customer_id=row['customer_id'],
@@ -502,25 +477,24 @@ def import_customers(session):
             session.add(customer)
         
         session.commit()
-        print(f"✅ {len(df)} clients importés")
+        print(f"{len(df)} clients importés")
         
     except Exception as e:
         session.rollback()
-        print(f"❌ Erreur lors de l'import des clients: {e}")
+        print(f"Erreur lors de l'import des clients: {e}")
         raise
 
 def import_orders_for_date(session, file_path):
-    """Importe les commandes d'un fichier JSON spécifique"""
+    """Importe les commandes d'un fichier JSON"""
     filename = os.path.basename(file_path)
     date_str = extract_date_from_filename(filename)
     
     if not date_str:
-        print(f"⚠️  Impossible d'extraire la date du fichier {filename}")
+        print(f"Impossible d'extraire la date du fichier {filename}")
         return
     
-    print(f"📦 Import des commandes du {date_str}...")
+    print(f"Import des commandes du {date_str}...")
     
-    # Nettoyer les données existantes pour cette date
     cleanup_date_data(session, date_str)
     
     try:
@@ -529,17 +503,15 @@ def import_orders_for_date(session, file_path):
         
         orders_count = 0
         items_count = 0
-        seen_orders = set()  # Pour dédupliquer sur order_id
+        seen_orders = set()
         
         for order_data in orders_data:
             order_id = order_data['order_id']
             
-            # Dédupliquer sur order_id (garder première occurrence)
             if order_id in seen_orders:
                 continue
             seen_orders.add(order_id)
             
-            # Créer l'objet Order
             order = Order(
                 order_id=order_id,
                 customer_id=order_data['customer_id'],
@@ -550,35 +522,32 @@ def import_orders_for_date(session, file_path):
             session.add(order)
             orders_count += 1
             
-            # Ajouter les items de la commande
             for item_data in order_data['items']:
                 order_item = OrderItem(
                     order_id=order_id,
                     sku=item_data['sku'],
                     qty=item_data['qty'],
-                    unit_price=float(item_data['unit_price'])  # Conversion en float pour les décimaux
+                    unit_price=float(item_data['unit_price'])
                 )
                 session.add(order_item)
                 items_count += 1
         
         session.commit()
-        print(f"✅ {orders_count} commandes et {items_count} items importés pour le {date_str}")
+        print(f"{orders_count} commandes et {items_count} items importés pour le {date_str}")
         
     except Exception as e:
         session.rollback()
-        print(f"❌ Erreur lors de l'import des commandes du {date_str}: {e}")
+        print(f"Erreur lors de l'import des commandes du {date_str}: {e}")
         raise
 
 def import_refunds(session):
-    """Importe les remboursements depuis refunds.csv"""
-    print("💰 Import des remboursements...")
+    """Importe les remboursements"""
+    print("Import des remboursements...")
     
     try:
-        # Lire le fichier CSV depuis le dossier temporaire
         df = pd.read_csv(os.path.join(TEMP_PATH, 'refunds.csv'))
-        print(f"   📊 {len(df)} remboursements trouvés")
+        print(f"{len(df)} remboursements trouvés")
         
-        # Vérifier quelles commandes existent
         existing_orders = set()
         for order in session.query(Order.order_id).all():
             existing_orders.add(order[0])
@@ -586,13 +555,12 @@ def import_refunds(session):
         refunds_imported = 0
         refunds_orphaned = 0
         
-        # Insérer seulement les remboursements dont les commandes existent
         for _, row in df.iterrows():
             if row['order_id'] in existing_orders:
                 refund = Refund(
                     refund_id=row['refund_id'],
                     order_id=row['order_id'],
-                    amount=float(row['amount']),  # Conversion en float
+                    amount=float(row['amount']),
                     reason=row['reason'],
                     created_at=datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S')
                 )
@@ -600,97 +568,73 @@ def import_refunds(session):
                 refunds_imported += 1
             else:
                 refunds_orphaned += 1
-                print(f"   ⚠️  Remboursement orphelin ignoré: {row['refund_id']} (commande {row['order_id']} non trouvée)")
+                print(f"Remboursement orphelin ignoré: {row['refund_id']} (commande {row['order_id']} non trouvée)")
         
         session.commit()
-        print(f"✅ {refunds_imported} remboursements importés")
+        print(f"{refunds_imported} remboursements importés")
         if refunds_orphaned > 0:
-            print(f"⚠️  {refunds_orphaned} remboursements orphelins ignorés")
+            print(f"{refunds_orphaned} remboursements orphelins ignorés")
         
     except Exception as e:
         session.rollback()
-        print(f"❌ Erreur lors de l'import des remboursements: {e}")
+        print(f"Erreur lors de l'import des remboursements: {e}")
         raise
 
 def main():
-    """Fonction principale d'import"""
+    """Fonction principale"""
     import sys
     
-    print("🚀 Début de l'import FreshKart vers PostgreSQL")
-    print(f"🔗 Connexion à: {DATABASE_URL}")
+    print("Début de l'import FreshKart")
+    print(f"Connexion à: {DATABASE_URL}")
     
     try:
-        # Copier les fichiers vers le dossier temporaire
         copy_files_to_temp()
         
-        # Créer les tables
         create_tables()
-        
-        # Créer une session
         session = Session()
         
         try:
-            # Vérifier si un fichier spécifique est fourni en argument
             if len(sys.argv) > 1:
                 file_path = sys.argv[1]
                 if os.path.exists(file_path):
-                    print(f"📁 Traitement du fichier spécifique: {file_path}")
+                    print(f"Traitement du fichier: {file_path}")
                     import_orders_for_date(session, file_path)
                 else:
-                    print(f"❌ Fichier non trouvé: {file_path}")
+                    print(f"Fichier non trouvé: {file_path}")
                     return 1
             else:
-                # Mode par défaut : importer tous les clients et remboursements une seule fois
-                # puis traiter tous les fichiers orders
-                print("📋 Mode complet : import de tous les fichiers")
+                print("Mode complet : import de tous les fichiers")
                 
-                # Import initial des clients (une seule fois)
                 if session.query(Customer).count() == 0:
                     import_customers(session)
                 else:
-                    print("👥 Clients déjà présents, passage de l'import")
+                    print("Clients déjà présents, passage de l'import")
                 
-                # Traiter tous les fichiers orders AVANT les remboursements
                 order_files = glob.glob(os.path.join(TEMP_PATH, 'orders_*.json'))
                 order_files.sort()
-                print(f"📁 {len(order_files)} fichiers de commandes à traiter")
+                print(f"{len(order_files)} fichiers de commandes à traiter")
                 
                 for file_path in order_files:
                     import_orders_for_date(session, file_path)
                 
-                # Import des remboursements APRÈS les commandes (une seule fois)
                 if session.query(Refund).count() == 0:
                     import_refunds(session)
                 else:
-                    print("💰 Remboursements déjà présents, passage de l'import")
+                    print("Remboursements déjà présents, passage de l'import")
             
-            print("🎉 Import terminé avec succès!")
-            
-            # Afficher quelques statistiques
-            print("\n📈 Statistiques:")
-            print(f"   👥 Clients: {session.query(Customer).count()}")
-            print(f"   📦 Commandes: {session.query(Order).count()}")
-            print(f"   🛒 Items: {session.query(OrderItem).count()}")
-            print(f"   💰 Remboursements: {session.query(Refund).count()}")
-            print(f"   🧹 Commandes nettoyées: {session.query(OrderClean).count()}")
-            print(f"   📊 Résumés quotidiens: {session.query(DailyCitySales).count()}")
-            
-            # Générer le CSV de résumé quotidien
+            print("Import terminé avec succès")
+                        
             generate_daily_summary_csv(session)
-            
-            # Peupler les tables orders_clean et daily_city_sales
             populate_orders_clean(session)
             populate_daily_city_sales(session)
             
         finally:
             session.close()
         
-        # Nettoyer le dossier temporaire
         cleanup_temp_directory()
             
     except Exception as e:
-        print(f"💥 Erreur fatale: {e}")
-        # Nettoyer même en cas d'erreur
+        print(f"Erreur fatale: {e}")
         cleanup_temp_directory()
         return 1
     

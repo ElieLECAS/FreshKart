@@ -155,7 +155,6 @@ def write_outputs(
 
 
 def main() -> None:
-    # args = parse_args()
     input_dir = Path(DEFAULT_INPUT_DIR)
     output_dir = Path(DEFAULT_OUTPUT_DIR)
 
