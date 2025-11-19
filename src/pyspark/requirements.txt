@@ -1,3 +1,2 @@
-sqlalchemy
+pyspark[sql]
 psycopg2-binary
-pandas

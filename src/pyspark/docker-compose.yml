@@ -24,7 +24,7 @@ services:
             DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
             TARGET_DATE: ${TARGET_DATE}
         volumes:
-            - ../data:/data
+            - ../../data:/data
             - ./temp:/app/temp
             - ./output:/app/output
         command: python /app/import_data.py
