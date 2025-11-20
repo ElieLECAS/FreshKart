@@ -155,27 +155,79 @@ class FileManager:
             raise
     
     def cleanup_temp_directory(self):
-        """Supprime les fichiers du dossier temporaire"""
+        """Supprime complètement le contenu du dossier temporaire (sans supprimer le dossier lui-même)"""
         print("Nettoyage du dossier temporaire...")
         
         try:
-            if os.path.exists(self.temp_path):
-                for filename in os.listdir(self.temp_path):
-                    file_path = os.path.join(self.temp_path, filename)
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-                        print(f"Supprimé: {filename}")
-                
+            if not os.path.exists(self.temp_path):
+                print("Dossier temporaire n'existe pas")
+                print("Nettoyage terminé")
+                return
+            
+            # Supprimer uniquement le contenu du dossier, pas le dossier lui-même
+            # Cela évite l'erreur "Device or resource busy" si le dossier est un point de montage
+            if not os.path.isdir(self.temp_path):
+                # Si c'est un fichier et non un dossier, le supprimer
                 try:
-                    os.rmdir(self.temp_path)
-                    print("Dossier temporaire supprimé")
-                except OSError:
-                    print("Dossier temporaire conservé")
+                    os.remove(self.temp_path)
+                    print("Fichier temporaire supprimé")
+                except OSError as e:
+                    print(f"Impossible de supprimer le fichier temporaire: {e}")
+                print("Nettoyage terminé")
+                return
+            
+            # Lister et supprimer le contenu du dossier
+            try:
+                items = os.listdir(self.temp_path)
+            except OSError as e:
+                print(f"Impossible de lister le contenu du dossier temporaire: {e}")
+                print("Nettoyage terminé")
+                return
+            
+            deleted_count = 0
+            failed_items = []
+            
+            for item in items:
+                item_path = os.path.join(self.temp_path, item)
+                try:
+                    if os.path.isfile(item_path) or os.path.islink(item_path):
+                        os.remove(item_path)
+                        deleted_count += 1
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                        deleted_count += 1
+                except OSError as e:
+                    # Enregistrer les éléments qui n'ont pas pu être supprimés
+                    failed_items.append((item, str(e)))
+                    continue
+            
+            if deleted_count > 0:
+                print(f"{deleted_count} élément(s) supprimé(s) du dossier temporaire")
+            
+            if failed_items:
+                print(f"Avertissement: {len(failed_items)} élément(s) n'ont pas pu être supprimés:")
+                for item, error in failed_items[:5]:  # Limiter à 5 pour ne pas surcharger la sortie
+                    print(f"  - {item}: {error}")
+                if len(failed_items) > 5:
+                    print(f"  ... et {len(failed_items) - 5} autre(s)")
+            
+            # Vérifier si le dossier est maintenant vide
+            try:
+                remaining = os.listdir(self.temp_path)
+                if not remaining:
+                    print("Dossier temporaire vidé avec succès")
+                else:
+                    print(f"Avertissement: {len(remaining)} élément(s) restant(s) dans le dossier temporaire")
+            except OSError:
+                # Ne pas afficher d'erreur si on ne peut pas lister (peut être normal)
+                pass
             
             print("Nettoyage terminé")
         
         except Exception as e:
             print(f"Erreur lors du nettoyage: {e}")
+            # Ne pas lever d'exception, juste loguer l'erreur
+            # Le dossier sera nettoyé lors de la prochaine exécution si nécessaire
     
     def get_order_files(self) -> List[str]:
         """Retourne la liste des fichiers de commandes"""
@@ -930,46 +982,43 @@ class FreshKartImport:
             self.file_manager.copy_files_to_temp()
             self.db_manager.create_tables()
             
-            try:
-                if file_path and os.path.exists(file_path):
-                    print(f"Traitement du fichier: {file_path}")
+            if file_path and os.path.exists(file_path):
+                print(f"Traitement du fichier: {file_path}")
+                self.data_importer.import_orders_for_date(file_path)
+            elif file_path:
+                print(f"Fichier non trouvé: {file_path}")
+                return 1
+            else:
+                print("Mode complet : import de tous les fichiers")
+                
+                self.data_importer.import_customers()
+                
+                order_files = self.file_manager.get_order_files()
+                print(f"{len(order_files)} fichiers de commandes à traiter")
+                
+                for file_path in order_files:
                     self.data_importer.import_orders_for_date(file_path)
-                elif file_path:
-                    print(f"Fichier non trouvé: {file_path}")
-                    return 1
-                else:
-                    print("Mode complet : import de tous les fichiers")
-                    
-                    self.data_importer.import_customers()
-                    
-                    order_files = self.file_manager.get_order_files()
-                    print(f"{len(order_files)} fichiers de commandes à traiter")
-                    
-                    for file_path in order_files:
-                        self.data_importer.import_orders_for_date(file_path)
-                    
-                    self.data_importer.import_refunds()
                 
-                print("Import terminé avec succès")
-                
-                self.data_processor.generate_daily_summary_csv()
-                self.data_processor.populate_orders_clean()
-                self.data_processor.populate_daily_city_sales()
+                self.data_importer.import_refunds()
             
-            finally:
-                self.spark_manager.stop()
+            print("Import terminé avec succès")
             
-            self.file_manager.cleanup_temp_directory()
+            self.data_processor.generate_daily_summary_csv()
+            self.data_processor.populate_orders_clean()
+            self.data_processor.populate_daily_city_sales()
+            
+            return 0
         
         except Exception as e:
             print(f"Erreur fatale: {e}")
             import traceback
             traceback.print_exc()
-            self.file_manager.cleanup_temp_directory()
-            self.spark_manager.stop()
             return 1
         
-        return 0
+        finally:
+            # Toujours arrêter Spark et nettoyer le dossier temporaire à la fin
+            self.spark_manager.stop()
+            self.file_manager.cleanup_temp_directory()
 
 
 def main():

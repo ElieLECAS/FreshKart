@@ -27,6 +27,7 @@ services:
             - ../../data:/data
             - ./temp:/app/temp
             - ./output:/app/output
+            - ./tests:/app/tests
         command: python /app/import_data.py
 
 volumes:

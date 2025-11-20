@@ -19,5 +19,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the import script
 COPY import_data.py .
 
-# Set working directory for data access but keep script in /app
-WORKDIR /data
+# Keep working directory at /app for scripts and tests
+# Data access uses absolute paths (/data, /app/temp, /app/output)
+WORKDIR /app
