@@ -20,31 +20,20 @@ from pyspark.sql.types import (
 class DatabaseConfig:
     """Gère la configuration de la base de données"""
     
-    def __init__(self, database_url: Optional[str] = None):
-        self.database_url = database_url or os.getenv(
-            'DATABASE_URL',
-            'postgresql://postgres:postgres@localhost:5432/freshkart'
-        )
-        self._config = self._parse_database_url()
-        if not self._config:
-            raise ValueError(f"Format DATABASE_URL invalide: {self.database_url}")
+    def __init__(self):
+        """Initialise la configuration à partir des variables d'environnement"""
+        self._config = {
+            'host': os.getenv('POSTGRES_HOST'),
+            'port': os.getenv('POSTGRES_PORT'),
+            'database': os.getenv('POSTGRES_DB'),
+            'user': os.getenv('POSTGRES_USER'),
+            'password': os.getenv('POSTGRES_PASSWORD')
+        }
     
-    def _parse_database_url(self) -> Optional[Dict[str, str]]:
-        """Parse DATABASE_URL pour extraire les informations de connexion JDBC"""
-        match = re.match(
-            r'postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)',
-            self.database_url
-        )
-        if match:
-            user, password, host, port, database = match.groups()
-            return {
-                'user': user,
-                'password': password,
-                'host': host,
-                'port': port,
-                'database': database
-            }
-        return None
+    @property
+    def database_url(self) -> str:
+        """Retourne l'URL de connexion PostgreSQL (format standard)"""
+        return f"postgresql://{self._config['user']}:{self._config['password']}@{self._config['host']}:{self._config['port']}/{self._config['database']}"
     
     @property
     def jdbc_url(self) -> str:
@@ -79,7 +68,6 @@ class SparkManager:
         self._spark: Optional[SparkSession] = None
     
     def get_spark_session(self) -> SparkSession:
-        """Retourne ou crée la session Spark"""
         if self._spark is None:
             self._spark = SparkSession.builder \
                 .appName(self.app_name) \
@@ -92,7 +80,6 @@ class SparkManager:
         return self._spark
     
     def stop(self):
-        """Arrête la session Spark"""
         if self._spark is not None:
             self._spark.stop()
             self._spark = None
@@ -957,8 +944,8 @@ class DataProcessor:
 class FreshKartImport:
     """Classe principale pour orchestrer l'import FreshKart"""
     
-    def __init__(self, database_url: Optional[str] = None):
-        self.db_config = DatabaseConfig(database_url)
+    def __init__(self):
+        self.db_config = DatabaseConfig()
         self.spark_manager = SparkManager()
         self.file_manager = FileManager()
         self.data_importer = DataImporter(

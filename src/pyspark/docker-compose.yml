@@ -7,6 +7,7 @@ services:
             POSTGRES_DB: ${POSTGRES_DB}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_HOST: ${POSTGRES_HOST}
         volumes:
             - postgres_data:/var/lib/postgresql/data
         healthcheck:
@@ -21,7 +22,11 @@ services:
             postgres:
                 condition: service_healthy
         environment:
-            DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+            POSTGRES_HOST: ${POSTGRES_HOST}
+            POSTGRES_PORT: 5432
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
             TARGET_DATE: ${TARGET_DATE}
         volumes:
             - ../../data:/data
