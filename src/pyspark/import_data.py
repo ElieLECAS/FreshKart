@@ -414,13 +414,10 @@ class DataImporter:
         self.db_manager = DatabaseManager(db_config)
     
     def import_customers(self):
-        """Importe les clients en utilisant PySpark"""
-        print("Import des clients...")
         
         spark = self.spark_manager.get_spark_session()
         
         try:
-            # Vérifier si des clients existent déjà
             try:
                 existing_customers = spark.read.jdbc(
                     self.db_config.jdbc_url,
@@ -431,7 +428,6 @@ class DataImporter:
                     print("Clients déjà présents, passage de l'import")
                     return
             except Exception:
-                # La table n'existe peut-être pas encore, on continue
                 pass
             
             # Lire le CSV avec Spark
@@ -440,7 +436,6 @@ class DataImporter:
                 .option("inferSchema", "true") \
                 .csv(os.path.join(self.file_manager.temp_path, 'customers.csv'))
             
-            # Convertir is_active en boolean si nécessaire
             customers_df = customers_df.withColumn(
                 "is_active",
                 when(col("is_active").cast("string").isin(["True", "true", "1", "True ", "TRUE"]), lit(True))
@@ -448,8 +443,6 @@ class DataImporter:
                 .otherwise(col("is_active").cast(BooleanType()))
             )
             
-            count_customers = customers_df.count()
-            print(f"{count_customers} clients trouvés")
             
             # Écrire dans PostgreSQL
             customers_df.write \
@@ -457,7 +450,6 @@ class DataImporter:
                 .option("createTableColumnTypes", "customer_id VARCHAR(10), first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(255), city VARCHAR(100), is_active BOOLEAN") \
                 .jdbc(self.db_config.jdbc_url, "customers", properties=self.db_config.jdbc_properties)
             
-            print(f"{count_customers} clients importés")
         
         except Exception as e:
             print(f"Erreur lors de l'import des clients: {e}")
@@ -472,7 +464,6 @@ class DataImporter:
             print(f"Impossible d'extraire la date du fichier {filename}")
             return
         
-        print(f"Import des commandes du {date_str}...")
         
         self.db_manager.cleanup_date_data(date_str)
         

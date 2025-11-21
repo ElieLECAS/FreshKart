@@ -22,7 +22,13 @@ from import_data import (
 class TestDatabaseConfig:
     """Tests pour la classe DatabaseConfig"""
     
-    @patch.dict(os.environ, {'DATABASE_URL': 'postgresql://env_user:env_pass@env_host:5433/env_db'})
+    @patch.dict(os.environ, {
+        'POSTGRES_HOST': 'env_host',
+        'POSTGRES_PORT': '5433',
+        'POSTGRES_DB': 'env_db',
+        'POSTGRES_USER': 'env_user',
+        'POSTGRES_PASSWORD': 'env_pass'
+    })
     def test_init_from_env(self):
         """Test l'initialisation depuis les variables d'environnement"""
         config = DatabaseConfig()
@@ -32,10 +38,15 @@ class TestDatabaseConfig:
         assert config._config['port'] == '5433'
         assert config._config['database'] == 'env_db'
     
-    def test_init_invalid_url(self):
-        """Test l'initialisation avec une URL invalide"""
-        with pytest.raises(ValueError, match="Format DATABASE_URL invalide"):
-            DatabaseConfig(database_url="invalid_url")
+    def test_init_with_defaults(self):
+        """Test l'initialisation avec des valeurs par défaut (None)"""
+        with patch.dict(os.environ, {}, clear=True):
+            config = DatabaseConfig()
+            assert config._config['user'] is None
+            assert config._config['password'] is None
+            assert config._config['host'] is None
+            assert config._config['port'] is None
+            assert config._config['database'] is None
 
 
 class TestSparkManager:
@@ -108,7 +119,13 @@ class TestDataImporter:
     """Tests pour la classe DataImporter"""
     
     @patch('import_data.os.path.join')
-    @patch.dict('os.environ', {'DATABASE_URL': 'postgresql://user:pass@host:5432/dbname'})
+    @patch.dict('os.environ', {
+        'POSTGRES_HOST': 'host',
+        'POSTGRES_PORT': '5432',
+        'POSTGRES_DB': 'dbname',
+        'POSTGRES_USER': 'user',
+        'POSTGRES_PASSWORD': 'pass'
+    })
     def test_import_customers_existing(self, mock_join):
         """Test l'import des clients quand ils existent déjà"""
         mock_spark = Mock()
